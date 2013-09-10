@@ -1,5 +1,16 @@
 solaris_postinstall () {
-if [ `uname -r` = 5.10 -o `uname -r` = 5.11 ] ; then
+if [ `uname -r` = 5.11 ] ; then
+
+cat << EOT
+#!/bin/sh
+mkdir -p /var/run/op5
+/usr/bin/chown op5nrpe /var/run/op5
+/usr/bin/chmod 755 /var/run/op5
+/usr/bin/svcbundle -i -s service-name=site/nrpe -s model=daemon -s start-method="$prefix/etc/init.d/nrpe start" -s stop-method="$prefix/etc/init.d/nrpe stop" -s refresh-method="$prefix/etc/init.d/nrpe restart"
+EOT
+
+elif [ `uname -r` = 5.10 ] ; then
+
 cat << EOT
 #!/bin/sh
 mkdir -p /var/run/op5
@@ -23,7 +34,7 @@ cat << EOXML > /var/svc/manifest/site/nrpe.xml
         Modified ssh manifest for the Op5 nrpe daemon - by qrausva
 -->
 
-<service_bundle type='manifest' name='EISop5nrpe:nrpe'>
+<service_bundle type='manifest' name='EIS-op5nrpe:nrpe'>
 
 <service
         name='site/nrpe'
@@ -107,8 +118,7 @@ ln -sf /etc/init.d/nrpe /etc/rc3.d/S90nrpe
 /usr/bin/mkdir -p /var/run/op5
 /usr/bin/chown op5nrpe /var/run/op5
 /usr/bin/chmod 755 /var/run/op5
-
-#/etc/init.d/nrpe restart
+/etc/init.d/nrpe start
 EOT2
 
 else
@@ -118,22 +128,37 @@ fi
 }
 
 solaris_preremove () {
-if [ `uname -r` = 5.10 -o `uname -r` = 5.11 ] ; then
+if [ `uname -r` = 5.11 ] ; then
+
 cat << EOT
 #!/bin/sh
 /usr/bin/svcs -a | grep -w site/nrpe >/dev/null 2>&1
-if [ \$? = 0 ]
-then
+if [ \$? = 0 ]; then
         /usr/sbin/svcadm disable -s site/nrpe 2>&1
-#        pkill nrpe
+        echo "Removing Manifest for nrpe."
+        rm -f /lib/svc/manifest/site/nrpe.xml
+        /usr/sbin/svcadm restart manifest-import
+fi
+sleep 4
+rm -rf /var/run/op5
+exit 0
+EOT
+
+elif [ `uname -r` = 5.10 ] ; then
+
+cat << EOT
+#!/bin/sh
+/usr/bin/svcs -a | grep -w site/nrpe >/dev/null 2>&1
+if [ \$? = 0 ]; then
+        /usr/sbin/svcadm disable -s site/nrpe 2>&1
         echo "Removing Manifest for nrpe."
         /usr/sbin/svccfg delete site/nrpe
 fi
 sleep 4
 rm -rf /var/run/op5
 exit 0
-
 EOT
+
 elif [ `uname -r` = 5.9 -o `uname -r` = 5.8 ] ; then
 
 cat << EOT2

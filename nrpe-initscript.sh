@@ -325,7 +325,7 @@ cat << EOSOLARIS
 # NRPE (Nagios) client start script
 #
 
-USER=`/usr/bin/grep "^nrpe_user" $prefix/etc/nrpe.cfg | /usr/bin/cut -f2 -d=`
+USER=\`/usr/bin/grep "^nrpe_user" $prefix/etc/nrpe.cfg | /usr/bin/cut -f2 -d=\`
 
 USAGE="usage: \$0 [start|stop|restart]"
 if [ \$# -ne 1 ]; then

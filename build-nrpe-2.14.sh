@@ -5,7 +5,7 @@ pkgname=op5-nrpe
 prefix=/opt/op5
 PKGDIR=/tmp/op5
 build=$PKGDIR/src
-SANDBOX=$PKGDIR/sandbox
+SANDBOX=$PKGDIR/sandbox-nrpe
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
@@ -115,7 +115,7 @@ patch src/acl.c <<EOF
 >
 EOF
 
-               ./configure --prefix=$prefix/nrpe-$nrpe_version --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
+               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
 
                cp src/Makefile src/Makefile.ORG
 
@@ -155,7 +155,7 @@ patch src/acl.c <<EOF
 >
 EOF
 
-               ./configure --prefix=$prefix/nrpe-$nrpe_version --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
+               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
 
                cp src/Makefile src/Makefile.ORG
 
@@ -283,7 +283,6 @@ service nrpe stop
 rm -f /etc/init.d/nrpe
 rm -rf /var/run/op5
 rm -rf $prefix/nrpe
-rmdir -sp $prefix
 EOSPEC
 
    rpmbuild --define "_rpmdir $PKGDIR"  --buildroot=$SANDBOX -bb $SPEC
@@ -310,7 +309,7 @@ Architecture: $architecture
 Priority: optional
 Section: base
 Maintainer: Ericsson internal <root@ericsson.se>
-Description: This is nrpe and nagios-plugins installed in $prefix
+Description: This is nrpe installed in $prefix
 EOSPEC
 
 cat << EOSPEC > $POSTINST
@@ -324,7 +323,8 @@ EOSPEC
    chmod 755 $POSTINST
    cd $SANDBOX/..
    dpkg-deb --build $(basename $SANDBOX)
-   mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nrpe_version}-${nagiosplugins_version}-${packagerel}-${DISTVER#debian}.`uname -i`.deb
+   echo Wrote /var/tmp/${pkgname}-${nrpe_version}-${packagerel}-${DISTVER#debian}.`uname -i`.deb
+   mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nrpe_version}-${packagerel}-${DISTVER#debian}.`uname -i`.deb
 }
 
 
