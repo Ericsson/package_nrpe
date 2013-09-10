@@ -323,8 +323,8 @@ EOSPEC
    chmod 755 $POSTINST
    cd $SANDBOX/..
    dpkg-deb --build $(basename $SANDBOX)
-   echo Wrote /var/tmp/${pkgname}-${nrpe_version}-${packagerel}-${DISTVER#debian}.`uname -i`.deb
-   mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nrpe_version}-${packagerel}-${DISTVER#debian}.`uname -i`.deb
+   echo Wrote /var/tmp/${pkgname}-${nrpe_version}-${packagerel}${DISTVER#debian}.`uname -i`.deb
+   mv $(basename $SANDBOX).deb /var/tmp/${pkgname}-${nrpe_version}-${packagerel}${DISTVER#debian}.`uname -i`.deb
 }
 
 
