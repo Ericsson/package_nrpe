@@ -300,7 +300,7 @@ case "\$1" in
   stop)
 	# Stop daemons.
 	echo -n "Shutting down nrpe: "
-	killproc nrpe
+	killproc \$NrpeBin
 	echo
 	rm -f \$LockFile
 	;;
