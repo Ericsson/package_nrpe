@@ -289,6 +289,7 @@ NrpeCfg=$prefix/etc/nrpe.cfg
 LockFile=/var/lock/subsys/nrpe
 
 # See how we were called.
+RC=0
 case "\$1" in
   start)
 	# Start daemons.
@@ -310,13 +311,14 @@ case "\$1" in
 	;;
   status)
 	status nrpe
+  RC=\$?
 	;;
   *)
 	echo "Usage: nrpe {start|stop|restart|status}"
 	exit 1
 esac
 
-exit 0
+exit \$RC
 EORHEL
   elif [ "${DISTVER#solaris}" != "$DISTVER" ] ; then
 cat << EOSOLARIS

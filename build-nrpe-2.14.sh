@@ -9,7 +9,7 @@ SANDBOX=$PKGDIR/sandbox-nrpe
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=1
+packagerel=2
 nrpe_user=op5nrpe          # uid=95118
 nrpe_group=nfsnobody       # gid=65534
 nrpe_group_solaris=nogroup # gid=65534
