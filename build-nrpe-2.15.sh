@@ -9,13 +9,13 @@ SANDBOX=$PKGDIR/sandbox-nrpe
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=2
+packagerel=1
 nrpe_user=op5nrpe          # uid=95118
 nrpe_group=nfsnobody       # gid=65534
 nrpe_group_solaris=nogroup # gid=65534
 
-nrpe_version=2.14
-nrpe_source="http://downloads.sourceforge.net/project/nagios/nrpe-2.x/nrpe-2.14/nrpe-2.14.tar.gz?r=&ts=1358498785&use_mirror=heanet"
+nrpe_version=2.15
+nrpe_source="http://sourceforge.net/projects/nagios/files/nrpe-2.x/nrpe-2.15/nrpe-2.15.tar.gz/download"
 
 #-----------------------------------------------
 # Linux Dist
@@ -283,6 +283,8 @@ service nrpe stop
 rm -f /etc/init.d/nrpe
 rm -rf /var/run/op5
 rm -rf $prefix/nrpe
+rm -rf $prefix/etc/init.d/
+rmdir $prefix/etc/ > /dev/null
 EOSPEC
 
    rpmbuild --define "_rpmdir $PKGDIR"  --buildroot=$SANDBOX -bb $SPEC
