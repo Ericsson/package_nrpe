@@ -284,7 +284,7 @@ rm -f /etc/init.d/nrpe
 rm -rf /var/run/op5
 rm -rf $prefix/nrpe
 rm -rf $prefix/etc/init.d/
-rmdir $prefix/etc/ > /dev/null
+rmdir --ignore-fail-on-non-empty $prefix/etc
 EOSPEC
 
    rpmbuild --define "_rpmdir $PKGDIR"  --buildroot=$SANDBOX -bb $SPEC
@@ -302,11 +302,13 @@ EOSPEC
 nrpe_deb () {
    typeset CTRL=$SANDBOX/DEBIAN/control
    typeset POSTINST=$SANDBOX/DEBIAN/postinst
+   typeset PRERM=$SANDBOX/DEBIAN/prerm
+   typeset POSTRM=$SANDBOX/DEBIAN/postrm
    mkdir -p $SANDBOX/DEBIAN
 
 cat << EOSPEC > $CTRL
 Package: ${pkgname}
-Version: ${nrpe_version}-${nagiosplugins_version}-${packagerel}
+Version: ${nrpe_version}-${packagerel}
 Architecture: $architecture
 Priority: optional
 Section: base
@@ -315,14 +317,27 @@ Description: This is nrpe installed in $prefix
 EOSPEC
 
 cat << EOSPEC > $POSTINST
+update-rc.d nrpe defaults
 rm -f /etc/init.d/nrpe
 ln -s $prefix/etc/init.d/nrpe /etc/init.d/nrpe
-update-rc.d nrpe defaults
 mkdir -p /var/run/op5
 chmod 0766 /var/run/op5
+service nrpe start
 EOSPEC
 
-   chmod 755 $POSTINST
+cat << EOSPEC > $PRERM
+service nrpe stop
+EOSPEC
+
+cat << EOSPEC > $POSTRM
+update-rc.d -f nrpe remove
+rm -rf /var/run/op5
+rm -rf $prefix/nrpe
+rm -rf $prefix/etc/init.d/
+rmdir --ignore-fail-on-non-empty $prefix/etc
+EOSPEC
+
+   chmod 755 $POSTINST $PRERM $POSTRM
    cd $SANDBOX/..
    dpkg-deb --build $(basename $SANDBOX)
    echo Wrote /var/tmp/${pkgname}-${nrpe_version}-${packagerel}${DISTVER#debian}.`uname -i`.deb
