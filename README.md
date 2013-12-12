@@ -21,13 +21,22 @@ Verified on:
 * Solaris 11 x86
 * Ubuntu 12.04 LTS 64bit
 
+Defaults
+========
+
+* pkgname=op5-nrpe
+* prefix=/opt/op5
+* nrpe_user=op5nrpe
+* nrpe_group=nfsnobody
+* nrpe_group_solaris=nogroup
+
 Build
 =====
 
-* be root on <server>
+* be root on server
 * uninstall previous package and remove /opt/op5
-* http_proxy=<your proxy:port>
-* https_proxy=<your proxy:port>
+* export http_proxy=[your proxy:port]
+* export https_proxy=[your proxy:port]
 * copy the repo to /tmp/
 * cd /tmp/package_nrpe/
 * ./build-nrpe-2.15.sh
