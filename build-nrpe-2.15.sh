@@ -9,10 +9,14 @@ SANDBOX=$PKGDIR/sandbox-nrpe
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=1
-nrpe_user=op5nrpe          # uid=95118
-nrpe_group=nfsnobody       # gid=65534
-nrpe_group_solaris=nogroup # gid=65534
+packagerel=2
+nrpe_user=op5nrpe
+nrpe_user_solaris=op5nrpe
+nrpe_uid=95118
+nrpe_group=nfsnobody
+nrpe_group_solaris=nogroup
+nrpe_gid=65534
+nrpe_home=/opt/op5/data
 
 nrpe_version=2.15
 nrpe_source="http://sourceforge.net/projects/nagios/files/nrpe-2.x/nrpe-2.15/nrpe-2.15.tar.gz/download"
@@ -115,7 +119,7 @@ patch src/acl.c <<EOF
 >
 EOF
 
-               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
+               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user_solaris --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user_solaris --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
 
                cp src/Makefile src/Makefile.ORG
 
@@ -155,7 +159,7 @@ patch src/acl.c <<EOF
 >
 EOF
 
-               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
+               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user_solaris --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user_solaris --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/opt/csw/lib/32 --with-ssl=/opt/csw
 
                cp src/Makefile src/Makefile.ORG
 
@@ -174,7 +178,7 @@ EOF
             # Solaris 10 <
             #
             *)
-               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/usr/sfw/lib --with-ssl-inc=/usr/sfw/include --with-ssl=/usr/sfw
+               ./configure --prefix=$prefix/nrpe --with-nrpe-user=$nrpe_user_solaris --with-nrpe-group=$nrpe_group_solaris --with-nagios-user=$nrpe_user_solaris --with-nagios-group=$nrpe_group_solaris --enable-ssl --enable-command-args --with-ssl-lib=/usr/sfw/lib --with-ssl-inc=/usr/sfw/include --with-ssl=/usr/sfw
 
                # needed for nrpe-2.12
                #cp src/nrpe.c src/nrpe.c.orig
@@ -188,7 +192,7 @@ EOF
             exit 1
          fi
          mkdir -p $prefix/scripts $prefix/plugins-contrib $prefix/etc/init.d $prefix/data
-         chown -R $nrpe_user:$nrpe_group_solaris $prefix/data $prefix/scripts $prefix/plugins-contrib $prefix/etc/init.d
+         chown -R $nrpe_user_solaris:$nrpe_group_solaris $prefix/data $prefix/scripts $prefix/plugins-contrib $prefix/etc/init.d
          nrpe_initscript solaris > $prefix/etc/init.d/nrpe
          chmod 755 $prefix/etc/init.d/nrpe
       ;;
@@ -250,6 +254,10 @@ AutoReqProv: no
 %description
 NRPE agent installed in $prefix
 
+%pre
+/usr/bin/getent group $nrpe_group > /dev/null || /usr/sbin/groupadd -r -o -g $nrpe_gid $nrpe_group
+/usr/bin/getent passwd $nrpe_user > /dev/null || /usr/sbin/useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/bash $nrpe_user
+
 %post
 rm -f /etc/init.d/nrpe
 ln -s $prefix/etc/init.d/nrpe /etc/init.d/nrpe
@@ -301,6 +309,7 @@ EOSPEC
 
 nrpe_deb () {
    typeset CTRL=$SANDBOX/DEBIAN/control
+   typeset PRE=$SANDBOX/DEBIAN/preinst
    typeset POSTINST=$SANDBOX/DEBIAN/postinst
    typeset PRERM=$SANDBOX/DEBIAN/prerm
    typeset POSTRM=$SANDBOX/DEBIAN/postrm
@@ -314,6 +323,11 @@ Priority: optional
 Section: base
 Maintainer: Ericsson internal <root@ericsson.se>
 Description: This is nrpe installed in $prefix
+EOSPEC
+
+cat << EOSPEC > $PRE
+getent group $nrpe_group > /dev/null || groupadd -r -o -g $nrpe_gid $nrpe_group
+getent passwd $nrpe_user > /dev/null || useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/sh $nrpe_user
 EOSPEC
 
 cat << EOSPEC > $POSTINST
@@ -337,7 +351,7 @@ rm -rf $prefix/etc/init.d/
 rmdir --ignore-fail-on-non-empty $prefix/etc
 EOSPEC
 
-   chmod 755 $POSTINST $PRERM $POSTRM
+   chmod 755 $PRE $POSTINST $PRERM $POSTRM
    cd $SANDBOX/..
    dpkg-deb --build $(basename $SANDBOX)
    echo Wrote /var/tmp/${pkgname}-${nrpe_version}-${packagerel}${DISTVER#debian}.`uname -i`.deb
@@ -361,6 +375,7 @@ nrpe_pkg () {
 cat << EOP >> ${PKGROOT}/cm.proto
 i checkinstall
 i pkginfo
+i preinstall
 i postinstall
 i preremove
 EOP
@@ -396,6 +411,7 @@ SUNW_PKG_THISZONE="true"
 EOT2
 
    . $scriptdir/solaris-postinstall.sh
+   solaris_preinstall > ${PKGROOT}/preinstall
    solaris_postinstall > ${PKGROOT}/postinstall
    solaris_preremove > ${PKGROOT}/preremove
    cd ${PKGROOT}
@@ -467,12 +483,32 @@ else
   cd -
 fi
 
-case `uname -s` in
-   'SunOS')
-      PATH=/usr/sbin:/usr/bin:/usr/sfw/bin:/usr/ccs/bin:/opt/csw/bin
-      export PATH
-   ;;
-esac
+if [ `uname -s` == 'SunOS' ]; then
+  if [ $? != 0 ]; then
+    getent passwd $nrpe_user_solaris > /dev/null
+    echo "User $nrpe_user_solaris does not exist"
+    exit
+  fi
+  if [ $? != 0 ]; then
+    getent group $nrpe_group_solaris > /dev/null
+    echo "Group $nrpe_group_solaris does not exist"
+    exit
+  fi
+  PATH=/usr/sbin:/usr/bin:/usr/sfw/bin:/usr/ccs/bin:/opt/csw/bin
+  export PATH
+else
+  getent passwd $nrpe_user > /dev/null
+  if [ $? != 0 ]; then
+    echo "User $nrpe_user does not exist"
+    exit
+  fi
+  getent group $nrpe_group > /dev/null
+  if [ $? != 0 ]; then
+    echo "Group $nrpe_group does not exist"
+    exit
+  fi
+
+fi
 
 test -d "$prefix" || mkdir -p $prefix
 test -d "$build" || mkdir -p $build

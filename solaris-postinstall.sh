@@ -1,10 +1,18 @@
+solaris_preinstall () {
+cat << EOT
+#!/bin/sh
+/usr/bin/getent group $nrpe_group_solaris > /dev/null || /usr/sbin/groupadd -o -g $nrpe_gid $nrpe_group_solaris
+/usr/bin/getent passwd $nrpe_user_solaris > /dev/null || /usr/sbin/useradd -o -u $nrpe_uid -g $nrpe_gid -d $nrpe_home $nrpe_user_solaris
+EOT
+}
+
 solaris_postinstall () {
 if [ `uname -r` = 5.11 ] ; then
 
 cat << EOT
 #!/bin/sh
 mkdir -p /var/run/op5
-/usr/bin/chown op5nrpe /var/run/op5
+/usr/bin/chown $nrpe_user_solaris /var/run/op5
 /usr/bin/chmod 755 /var/run/op5
 /usr/bin/svcbundle -i -s service-name=site/nrpe -s model=daemon -s start-method="$prefix/etc/init.d/nrpe start" -s stop-method="$prefix/etc/init.d/nrpe stop" -s refresh-method="$prefix/etc/init.d/nrpe restart"
 EOT
@@ -14,7 +22,7 @@ elif [ `uname -r` = 5.10 ] ; then
 cat << EOT
 #!/bin/sh
 mkdir -p /var/run/op5
-/usr/bin/chown op5nrpe /var/run/op5
+/usr/bin/chown $nrpe_user_solaris /var/run/op5
 /usr/bin/chmod 755 /var/run/op5
 
 cat << EOXML > /var/svc/manifest/site/nrpe.xml
@@ -116,7 +124,7 @@ cat << EOT2
 ln -sf $prefix/etc/init.d/nrpe /etc/init.d/nrpe
 ln -sf /etc/init.d/nrpe /etc/rc3.d/S90nrpe
 /usr/bin/mkdir -p /var/run/op5
-/usr/bin/chown op5nrpe /var/run/op5
+/usr/bin/chown $nrpe_user_solaris /var/run/op5
 /usr/bin/chmod 755 /var/run/op5
 /etc/init.d/nrpe start
 EOT2

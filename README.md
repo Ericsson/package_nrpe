@@ -16,8 +16,8 @@ Verified on:
 * Solaris  8 sparc
 * Solaris  9 sparc 
 * Solaris 10 sparc
-* Solaris 11 sparc
 * Solaris 10 x86
+* Solaris 11 sparc
 * Solaris 11 x86
 * Ubuntu 12.04 LTS 64bit
 
@@ -28,6 +28,7 @@ Defaults
 * prefix=/opt/op5
 * nrpe_user=op5nrpe
 * nrpe_group=nfsnobody
+* nrpe_user_solaris=op5nrpe
 * nrpe_group_solaris=nogroup
 
 Build
