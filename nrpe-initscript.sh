@@ -118,9 +118,9 @@ cat << EOSUSE
 #
 ### BEGIN INIT INFO
 # Provides:          nagios-nrpe
-# Required-Start:    \$remote_fs \$syslog \$network vasypd
+# Required-Start:    \$remote_fs \$syslog \$network
 # Should-Start:      cron
-# Required-Stop:     \$remote_fs \$syslog vasypd
+# Required-Stop:     \$remote_fs \$syslog
 # Should-Stop:       cron
 # Default-Start:     3 5
 # Default-Stop:      0 1 2 6
