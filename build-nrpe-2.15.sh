@@ -10,7 +10,7 @@ SANDBOX=$PKGDIR/sandbox-nrpe
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=4
+packagerel=5
 nrpe_user=op5nrpe
 nrpe_user_solaris=op5nrpe
 nrpe_uid=95118
@@ -219,10 +219,36 @@ EOF
             echo Nrpe did not build correctly
             exit 1
          fi
+
          mkdir -p $SANDBOX/$prefix/scripts $SANDBOX/$prefix/plugins-contrib $SANDBOX/$prefix/data $SANDBOX/$prefix/etc/init.d
          chown -R $nrpe_user:$nrpe_group $SANDBOX/$prefix/data $SANDBOX/$prefix/scripts $SANDBOX/$prefix/plugins-contrib $SANDBOX/$prefix/etc/init.d
          nrpe_initscript $DISTVER > $SANDBOX/$prefix/etc/init.d/nrpe
          chmod 755 $SANDBOX/$prefix/etc/init.d/nrpe
+
+         # systemd
+         if [ -d '/usr/lib/systemd/system' ]; then
+
+cat << EOF > $SANDBOX/usr/lib/systemd/system/nrpe.service
+[Unit]
+Description=NRPE
+After=network.target
+Requires=network.target
+
+[Service]
+Type=forking
+User=$nrpe_user
+Group=$nrpe_group
+PIDFile=/var/run/op5/nrpe.pid
+ExecStart=/opt/op5/nrpe/bin/nrpe -c /opt/op5/etc/nrpe.cfg -d
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+         chown -R $nrpe_user:$nrpe_group $SANDBOX/etc/init.d/nrpe.service
+
+         fi
+
       ;;
       *)
          echo Unsupported OS `uname -s`
@@ -264,8 +290,12 @@ rm -f /etc/init.d/nrpe
 ln -s $prefix/etc/init.d/nrpe /etc/init.d/nrpe
 mkdir -p /var/run/op5
 chmod 0766 /var/run/op5
+chown $nrpe_uid:$nrpe_gid /var/run/op5
 
-if [ -x /sbin/insserv ]; then
+if [ -d /usr/lib/systemd/system ]; then
+   ln -s $prefix/etc/init.d/nrpe.service /usr/lib/systemd/system/nrpe.service
+   systemctl daemon-reload
+elif [ -x /sbin/insserv ]; then
    /sbin/insserv /etc/init.d/nrpe &> /dev/null
 elif [ -x /sbin/chkconfig ]; then
    /sbin/chkconfig nrpe on
@@ -289,7 +319,7 @@ chkconfig nrpe off
 service nrpe stop
 
 %postun
-rm -f /etc/init.d/nrpe
+rm -f /etc/init.d/nrpe /usr/lib/systemd/system/nrpe.service
 rm -rf /var/run/op5
 rm -rf $prefix/nrpe
 rm -rf $prefix/etc/init.d/
