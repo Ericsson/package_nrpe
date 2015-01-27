@@ -2,6 +2,7 @@
 #@(#)Build EIS Configuration Management
 
 pkgname=op5-nrpe
+pkgdescription="op5 nrpe"
 prefix=/opt/op5
 PKGDIR=/tmp/op5
 build=$PKGDIR/src
@@ -9,7 +10,7 @@ SANDBOX=$PKGDIR/sandbox-nrpe
 scriptname=${0##*/}
 scriptdir=${0%/*}
 
-packagerel=3
+packagerel=5
 nrpe_user=op5nrpe
 nrpe_user_solaris=op5nrpe
 nrpe_uid=95118
@@ -218,10 +219,36 @@ EOF
             echo Nrpe did not build correctly
             exit 1
          fi
+
          mkdir -p $SANDBOX/$prefix/scripts $SANDBOX/$prefix/plugins-contrib $SANDBOX/$prefix/data $SANDBOX/$prefix/etc/init.d
          chown -R $nrpe_user:$nrpe_group $SANDBOX/$prefix/data $SANDBOX/$prefix/scripts $SANDBOX/$prefix/plugins-contrib $SANDBOX/$prefix/etc/init.d
          nrpe_initscript $DISTVER > $SANDBOX/$prefix/etc/init.d/nrpe
          chmod 755 $SANDBOX/$prefix/etc/init.d/nrpe
+
+         # systemd
+         if [ -d '/usr/lib/systemd/system' ]; then
+
+cat << EOF > $SANDBOX/usr/lib/systemd/system/nrpe.service
+[Unit]
+Description=NRPE
+After=network.target
+Requires=network.target
+
+[Service]
+Type=forking
+User=$nrpe_user
+Group=$nrpe_group
+PIDFile=/var/run/op5/nrpe.pid
+ExecStart=/opt/op5/nrpe/bin/nrpe -c /opt/op5/etc/nrpe.cfg -d
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+         chown -R $nrpe_user:$nrpe_group $SANDBOX/etc/init.d/nrpe.service
+
+         fi
+
       ;;
       *)
          echo Unsupported OS `uname -s`
@@ -256,15 +283,19 @@ NRPE agent installed in $prefix
 
 %pre
 /usr/bin/getent group $nrpe_group > /dev/null || /usr/sbin/groupadd -r -o -g $nrpe_gid $nrpe_group
-/usr/bin/getent passwd $nrpe_user > /dev/null || /usr/sbin/useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/bash $nrpe_user
+/usr/bin/getent passwd $nrpe_user > /dev/null || /usr/sbin/useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/false $nrpe_user
 
 %post
 rm -f /etc/init.d/nrpe
 ln -s $prefix/etc/init.d/nrpe /etc/init.d/nrpe
 mkdir -p /var/run/op5
 chmod 0766 /var/run/op5
+chown $nrpe_uid:$nrpe_gid /var/run/op5
 
-if [ -x /sbin/insserv ]; then
+if [ -d /usr/lib/systemd/system ]; then
+   ln -s $prefix/etc/init.d/nrpe.service /usr/lib/systemd/system/nrpe.service
+   systemctl daemon-reload
+elif [ -x /sbin/insserv ]; then
    /sbin/insserv /etc/init.d/nrpe &> /dev/null
 elif [ -x /sbin/chkconfig ]; then
    /sbin/chkconfig nrpe on
@@ -288,7 +319,7 @@ chkconfig nrpe off
 service nrpe stop
 
 %postun
-rm -f /etc/init.d/nrpe
+rm -f /etc/init.d/nrpe /usr/lib/systemd/system/nrpe.service
 rm -rf /var/run/op5
 rm -rf $prefix/nrpe
 rm -rf $prefix/etc/init.d/
@@ -327,15 +358,29 @@ EOSPEC
 
 cat << EOSPEC > $PRE
 getent group $nrpe_group > /dev/null || groupadd -r -o -g $nrpe_gid $nrpe_group
-getent passwd $nrpe_user > /dev/null || useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/sh $nrpe_user
+getent passwd $nrpe_user > /dev/null || useradd -r -u $nrpe_uid -g $nrpe_gid -d $nrpe_home -s /bin/false $nrpe_user
 EOSPEC
 
 cat << EOSPEC > $POSTINST
-update-rc.d nrpe defaults
 rm -f /etc/init.d/nrpe
 ln -s $prefix/etc/init.d/nrpe /etc/init.d/nrpe
+update-rc.d nrpe defaults
 mkdir -p /var/run/op5
 chmod 0766 /var/run/op5
+chown $nrpe_user /var/run/op5
+cat << EOCONF > /opt/op5/etc/nrpe.cfg
+allowed_hosts=127.0.0.1
+command_timeout=60
+connection_timeout=300
+debug=0
+dont_blame_nrpe=0
+include_dir=/opt/op5/etc/nrpe.d/
+log_facility=daemon
+nrpe_group=$nrpe_group
+nrpe_user=$nrpe_user
+pid_file=/var/run/op5/nrpe.pid
+server_port=5666
+EOCONF
 service nrpe start
 EOSPEC
 
@@ -360,10 +405,69 @@ EOSPEC
 
 
 #-----------------------------------------------
-# Build Solaris Package
+# Build Solaris IPS Package
 #-----------------------------------------------
 
-nrpe_pkg () {
+nrpe_ips_pkg () {
+   typeset PKGROOT=/var/tmp/${pkgname}
+   typeset PROTO=${PKGROOT}.proto
+   mkdir $PKGROOT $PROTO 2>/dev/null
+
+   # Install SMF manifest
+   mkdir -p ${PROTO}/system/volatile/op5 ${PROTO}/lib/svc/manifest/site 2>/dev/null
+   /usr/bin/chown $nrpe_user_solaris ${PROTO}/system/volatile/op5
+   /usr/bin/chmod 755 ${PROTO}/system/volatile/op5
+   /usr/bin/chgrp sys ${PROTO}/lib/svc/manifest/site
+   /usr/bin/svcbundle -o ${PROTO}/lib/svc/manifest/site/nrpe.xml -s service-name=site/nrpe -s model=daemon -s start-method="$prefix/etc/init.d/nrpe start" -s stop-method="$prefix/etc/init.d/nrpe stop" -s refresh-method="$prefix/etc/init.d/nrpe restart"
+
+   # Copy nrpe to proto
+   rsync -aR $prefix $PROTO
+
+   # Metadata
+cat << EOP >> ${PKGROOT}/${pkgname}.mog
+set name=pkg.fmri value=${pkgname}@${nrpe_version}-${packagerel}
+set name=pkg.summary value=${pkgname}
+set name=pkg.description value="${pkgdescription}"
+set name=variant.arch value=\$(ARCH)
+set name=info.classification value="org.opensolaris.category.2008:Applications/System Utilities"
+group groupname=${nrpe_group_solaris} gid=${nrpe_gid}
+user username=${nrpe_user_solaris} uid=${nrpe_uid} group=${nrpe_group_solaris} gcos-field=${nrpe_user_solaris} login-shell=/bin/false home-dir=${nrpe_home}
+<transform dir path=opt$ -> drop>
+<transform dir path=system$ -> drop>
+<transform dir path=system/volatile$ -> drop>
+<transform dir path=lib$ -> drop>
+<transform dir path=lib/svc$ -> drop>
+<transform dir path=lib/svc/manifest$ -> drop>
+<transform dir path=lib/svc/manifest/site$ -> drop>
+<transform file path=lib/svc/manifest/.*\.xml$ -> default restart_fmri svc:/system/manifest-import:default>
+EOP
+
+   # Generate
+   cd $PROTO
+   gfind . -type d -not -name .                                -printf "dir mode=%m owner=%u group=%g path=%p \n"     >> ${PKGROOT}/${pkgname}.p5m.gen
+   gfind . -type f -not -name LICENSE -and -not -name MANIFEST -printf "file %p mode=%m owner=%u group=%g path=%p \n" >> ${PKGROOT}/${pkgname}.p5m.gen
+   gfind . -type l -not -name LICENSE -and -not -name MANIFEST -printf "link path=%h/%f target=%l \n"                 >> ${PKGROOT}/${pkgname}.p5m.gen
+
+   # Content
+   pkgmogrify -DARCH=`uname -p` ${PKGROOT}/${pkgname}.p5m.gen ${PKGROOT}/${pkgname}.mog | pkgfmt > ${PKGROOT}/${pkgname}.p5m.mog
+   pkgdepend generate -md ${PKGROOT}.proto ${PKGROOT}/${pkgname}.p5m.mog | pkgfmt > ${PKGROOT}/${pkgname}.p5m.dep
+   pkgdepend resolve -m ${PKGROOT}/${pkgname}.p5m.dep
+
+   mv $PKGROOT/${pkgname}.p5m.dep.res /var/tmp/
+   echo "Note: if you have done any changes in the code please also do: pkglint -c /var/tmp/lint-cache -r http://pkg.oracle.com/solaris/release /var/tmp/${pkgname}.p5m.dep.res"
+   echo "Publish to local repo: pkgsend publish -s http://localhost:82 -d $PROTO /var/tmp/${pkgname}.p5m.dep.res"
+   echo "Wrote /var/tmp/${pkgname}.p5m.dep.res and Proto $PROTO"
+
+   if [ -n "$PKGROOT" ] ; then
+      rm -rf $PKGROOT
+   fi
+}
+
+#-----------------------------------------------
+# Build Solaris SVR4 Package
+#-----------------------------------------------
+
+nrpe_svr4_pkg () {
    typeset PKGROOT=/var/tmp/nrpe-pkgroot
 
    mkdir $PKGROOT
@@ -440,7 +544,14 @@ make_pkg () {
    typeset what=$1
    case `uname -s` in
       'SunOS')
-         ${what}_pkg
+         case `uname -r` in
+            '5.11')
+               ${what}_ips_pkg
+            ;;
+            *)
+               ${what}_svr4_pkg
+            ;;
+         esac
       ;;
       'HP-UX')
          echo To be implemented

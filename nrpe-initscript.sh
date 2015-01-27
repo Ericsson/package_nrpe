@@ -282,7 +282,7 @@ fi
 . /etc/sysconfig/network
 
 # Check that networking is up.
-[ \${NETWORKING} = "no" ] && exit 0
+[ \${NETWORKING} == "no" ] && exit 0
 
 NrpeBin=$prefix/nrpe/bin/nrpe
 NrpeCfg=$prefix/etc/nrpe.cfg
